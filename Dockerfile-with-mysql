@@ -1,0 +1,116 @@
+FROM centos:8 as magento
+
+COPY ./preinstall.sh /scripts/
+ADD conf/supervisord.conf /etc/supervisord.conf
+
+RUN pwd && bash /scripts/preinstall.sh; \
+cd ~; \
+wget https://github.com/Genaker/Magento-AWS-Linux-2-Installation/archive/refs/heads/master.zip; \
+unzip master.zip && cd ./Magento-AWS-Linux-2-Installation-master/; \
+yum clean all; \
+rm -rf /var/cache/yum; 
+
+RUN echo "Prepare & SupervisorD"; \
+set -x; \
+cd ~; \
+cd ./Magento-AWS-Linux-2-Installation-master/; \
+ls; \
+echo "Installing Utilities \n"; \
+bash ./install-prepare.sh; \ 
+echo "Install SupervisorDd";\
+yum install epel-release -y;\
+yum install supervisor -y; \
+yum clean all; \
+rm -rf /var/cache/yum; 
+
+RUN echo "Install PHP \n"; \
+pwd; \
+cd ~; \
+ls; \
+cd ./Magento-AWS-Linux-2-Installation-master/; \
+bash ./install-php.sh; \
+bash ./configure-php.sh; \
+yum install php-fpm -y; \
+set +e; \
+bash ./install-composer.sh; \
+composer clear-cache; \
+set -e; \
+echo "Install NGINX \n"; \
+bash ./install-nginx.sh; \
+echo "Configure Nginx \n"; \
+set +e; \
+bash ./configure-nginx.sh; \
+yum install php-fpm -y; \
+mkdir -p /run/php-fpm/; \
+touch /run/php-fpm/www.sock;\
+set -e; \
+yum clean all; \
+rm -rf /var/cache/yum;
+
+RUN echo "Install MariaDB 10.4 \n"; \
+cd ~; \
+cd ./Magento-AWS-Linux-2-Installation-master/; \
+bash ./install-mariadb-repo.sh; \
+yum clean all; \
+rm -rf /var/cache/yum; 
+
+
+RUN echo "Install Elastic 7.x \n"; \
+cd ~; \
+cd ./Magento-AWS-Linux-2-Installation-master/; \
+bash ./install-elastic-search.sh; \
+rm -rf /tmp/elasticsearch*; \
+yum clean all; \
+rm -rf /var/cache/yum; 
+
+
+RUN echo "Install Redis6.x \n"; \
+cd ~; \
+cd ./Magento-AWS-Linux-2-Installation-master/; \
+bash ./install-redis-compile.sh; 
+
+
+RUN echo "Install Magento Git \n"; \
+mkdir -p /var/www/html/magento/; \
+export IP=127.0.0.1; \
+set +e; \
+cd /var/www/html/magento/; \
+wget https://raw.githubusercontent.com/magento/magento2/2.4-develop/nginx.conf.sample; \
+mkdir pub; \
+echo "<?php phpinfo();?>" > pub/index.php; \
+#git clone --depth 1 https://github.com/magento/magento2.git .; \
+#composer install; \
+#composer clearcache; \
+set -e; 
+
+RUN mkdir -p /etc/supervisor/conf.d/; \
+echo "[program:mysqld]" > /etc/supervisor/conf.d/mysql.conf; \
+echo "command=mysqld --user=root" >> /etc/supervisor/conf.d/mysql.conf; \
+echo "autostart=true" >> /etc/supervisor/conf.d/mysql.conf; \
+echo "autorestart=true" >> /etc/supervisor/conf.d/mysql.conf; \
+echo "auser=root" >> /etc/supervisor/conf.d/mysql.conf; 
+
+RUN mkdir -p /etc/supervisor/conf.d/; \
+echo "[program:elasticsearch]" > /etc/supervisor/conf.d/es.conf; \
+echo "user=elasticsearch" >> /etc/supervisor/conf.d/es.conf; \
+echo "command=/usr/share/elasticsearch/bin/elasticsearch" >> /etc/supervisor/conf.d/es.conf; \
+echo "directory=/" >> /etc/supervisor/conf.d/es.conf; \
+echo "autostart=true" >> /etc/supervisor/conf.d/es.conf; \
+echo "autorestart=true" >> /etc/supervisor/conf.d/es.conf; 
+
+
+RUN mkdir -p /etc/supervisor/conf.d/; \
+echo "[program:redis]" > /etc/supervisor/conf.d/redis.conf; \
+echo "command=redis-server /etc/redis/redis.conf --daemonize yes" >> /etc/supervisor/conf.d/redis.conf; \
+echo "autostart=true" >> /etc/supervisor/conf.d/redis.conf; \
+echo "autorestart=true" >> /etc/supervisor/conf.d/redis.conf; 
+
+
+ENV DOCKER=YES
+EXPOSE 80 8080 443
+VOLUME ["/var/www/html/shared"]
+# VOLUME ["/var/www/html/magento/pub/media"]
+
+# ENTRYPOINT ["/usr/sbin/init"]
+# CMD ["/usr/bin/supervisord -n -c /etc/supervisord.conf"]
+ENTRYPOINT /usr/bin/supervisord -n -c /etc/supervisord.conf

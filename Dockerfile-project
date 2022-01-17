@@ -1,0 +1,42 @@
+FROM genaker/magento2-php-nginx-mysql:latest as magento
+
+RUN echo "Git Clone Composer Install"; \
+/usr/bin/supervisord -c /etc/supervisord.conf; \
+sleep 60; \
+ps -aux; \
+whoami; \
+mysql -e 'create database magento2'; \
+mysql -e "CREATE USER 'magento'@'localhost' IDENTIFIED BY 'magento'"; \
+mysql -e "GRANT ALL PRIVILEGES ON * . * TO 'magento'@'localhost'"; \
+mysql -e "FLUSH PRIVILEGES;"; \
+cd /var/www/html/magento/; \
+rm -rf /var/www/html/magento/*; \
+git clone --depth 1 https://github.com/magento/magento2.git .; \
+composer install; \ 
+bin/magento --version; 
+
+RUN echo "Install Magento"; \
+/usr/bin/supervisord -c /etc/supervisord.conf; \ 
+sleep 60; \
+ps -aux; \
+cd /var/www/html/magento/; \
+bin/magento setup:install --base-url=http://127.0.0.1 --db-host=localhost --db-name=magento2 --db-user=magento --db-password=magento --admin-firstname=Magento --admin-lastname=User --admin-email=user@example.com --admin-user=admin --admin-password=admin123 --backend-frontname=admin --language=en_US --currency=USD --timezone=America/Chicago --use-rewrites=1; \
+sudo chmod -R 777 var/ generated/ pub/media/ pub/static;
+
+RUN echo "Magento Redis Connections Set"; \
+/usr/bin/supervisord -c /etc/supervisord.conf; \ 
+sleep 60; \
+cd /var/www/html/magento/; \
+yes | bin/magento setup:config:set --page-cache=redis --page-cache-redis-server=127.0.0.1 --page-cache-redis-db=1; \
+yes | bin/magento setup:config:set --cache-backend=redis --cache-backend-redis-server=127.0.0.1 --cache-backend-redis-db=0; \
+yes | bin/magento setup:config:set --session-save=redis --session-save-redis-host=127.0.0.1 --session-save-redis-log-level=4 --session-save-redis-db=2;
+
+
+ENV DOCKER=YES
+EXPOSE 80 8080 443
+VOLUME ["/var/www/html/shared"]
+# VOLUME ["/var/www/html/magento/pub/media"]
+
+# ENTRYPOINT ["/usr/sbin/init"]
+# CMD ["/usr/bin/supervisord -n -c /etc/supervisord.conf"]
+ENTRYPOINT /usr/bin/supervisord -n -c /etc/supervisord.conf
