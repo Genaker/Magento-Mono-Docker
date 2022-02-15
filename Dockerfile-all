@@ -69,6 +69,30 @@ cd ~; \
 cd ./Magento-AWS-Linux-2-Installation-master/; \
 bash ./install-redis-compile.sh; 
 
+RUN echo "Configuration for Supervisord"; \
+mkdir -p /etc/supervisor/conf.d/; \
+echo "[program:mysqld]" > /etc/supervisor/conf.d/mysql.conf; \
+echo "command=mysqld --user=root" >> /etc/supervisor/conf.d/mysql.conf; \
+echo "autostart=true" >> /etc/supervisor/conf.d/mysql.conf; \
+echo "autorestart=true" >> /etc/supervisor/conf.d/mysql.conf; \
+echo "auser=root" >> /etc/supervisor/conf.d/mysql.conf \
+
+mkdir -p /etc/supervisor/conf.d/; \
+echo "[program:elasticsearch]" > /etc/supervisor/conf.d/es.conf; \
+echo "user=elasticsearch" >> /etc/supervisor/conf.d/es.conf; \
+echo "environment=ES_JAVA_OPTS=\"-Xms1g -Xmx1g\"" >> /etc/supervisor/conf.d/es.conf;\
+echo "command=/usr/share/elasticsearch/bin/elasticsearch" >> /etc/supervisor/conf.d/es.conf; \
+echo "directory=/" >> /etc/supervisor/conf.d/es.conf; \
+echo "autostart=true" >> /etc/supervisor/conf.d/es.conf; \
+echo "autorestart=true" >> /etc/supervisor/conf.d/es.conf; \
+mkdir -p /etc/supervisor/conf.d/; \
+
+echo "[program:redis]" > /etc/supervisor/conf.d/redis.conf; \
+echo "command=redis-server /etc/redis/redis.conf --daemonize no" >> /etc/supervisor/conf.d/redis.conf; \
+echo "startsecs=0" >>  /etc/supervisor/conf.d/redis.conf; \
+echo "supervised=auto" >>  /etc/supervisor/conf.d/redis.conf; \
+echo "autostart=true" >> /etc/supervisor/conf.d/redis.conf; \
+echo "autorestart=true" >> /etc/supervisor/conf.d/redis.conf; 
 
 RUN echo "Install Magento Git \n"; \
 mkdir -p /var/www/html/magento/; \
@@ -82,29 +106,6 @@ echo "<?php phpinfo();?>" > pub/index.php; \
 #composer install; \
 #composer clearcache; \
 set -e; 
-
-RUN mkdir -p /etc/supervisor/conf.d/; \
-echo "[program:mysqld]" > /etc/supervisor/conf.d/mysql.conf; \
-echo "command=mysqld --user=root" >> /etc/supervisor/conf.d/mysql.conf; \
-echo "autostart=true" >> /etc/supervisor/conf.d/mysql.conf; \
-echo "autorestart=true" >> /etc/supervisor/conf.d/mysql.conf; \
-echo "auser=root" >> /etc/supervisor/conf.d/mysql.conf; 
-
-RUN mkdir -p /etc/supervisor/conf.d/; \
-echo "[program:elasticsearch]" > /etc/supervisor/conf.d/es.conf; \
-echo "user=elasticsearch" >> /etc/supervisor/conf.d/es.conf; \
-echo "command=/usr/share/elasticsearch/bin/elasticsearch" >> /etc/supervisor/conf.d/es.conf; \
-echo "directory=/" >> /etc/supervisor/conf.d/es.conf; \
-echo "autostart=true" >> /etc/supervisor/conf.d/es.conf; \
-echo "autorestart=true" >> /etc/supervisor/conf.d/es.conf; 
-
-
-RUN mkdir -p /etc/supervisor/conf.d/; \
-echo "[program:redis]" > /etc/supervisor/conf.d/redis.conf; \
-echo "command=redis-server /etc/redis/redis.conf --daemonize yes" >> /etc/supervisor/conf.d/redis.conf; \
-echo "autostart=true" >> /etc/supervisor/conf.d/redis.conf; \
-echo "autorestart=true" >> /etc/supervisor/conf.d/redis.conf; 
-
 
 ENV DOCKER=YES
 EXPOSE 80 8080 443
